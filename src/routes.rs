@@ -5,10 +5,13 @@ use crate::db::Db;
 use crate::handlers;
 use crate::models::Customer;
 
-// This function allows the data store to be injected into the route and passed along into a handler
-// Filter is a trait 
-fn with_db(db: Db) -> impl Filer<Extract = (Db,), Error = Infallible> {
-    warp::any().map(move || db.clone())
+pub fn customer_routes(db: Db) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    // customer_list() is more specific than create_customer() so it needs to come first in the sequence of `or` statements 
+    get_customer(db.clone())
+    .or(update_customer(db.clone()))
+    .or(delete_customer(db.clone()))
+    .or(create_customer(db.clone()))
+    .or(customers_list(db.clone()))
 }
 
 // get all customers in the data store 
@@ -20,20 +23,6 @@ fn customers_list(
     .and(warp::get())
     .and(with_db(db))
     .and_then(handlers::list_customers)
-}
-
-pub fn customer_routes(db: Db) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    // customer_list() is more specific than create_customer() so it needs to come first in the sequence of `or` statements 
-    get_customer(db.clone())
-    .or(update_customer(db.clone()))
-    .or(delete_customer(db.clone()))
-    .or(create_customer(db.clone()))
-    .or(customers_list(db.clone()))
-}
-
-fn json_body() -> impl Filter<Extract = (Customer,), Error = warp::Rejection> + Clone {
-    warp::body::content_length_limit(1024 * 16)
-    .and(warp::body::json())
 }
 
 fn create_customer(
@@ -74,3 +63,17 @@ fn delete_customer(
     .and(with_db(db))
     .and_then(handlers::delete_customer)
 }
+
+// This function allows the data store to be injected into the route and passed along into a handler
+// Filter is a trait 
+fn with_db(db: Db) -> impl Filer<Extract = (Db,), Error = Infallible> {
+    warp::any().map(move || db.clone())
+}
+
+fn json_body() -> impl Filter<Extract = (Customer,), Error = warp::Rejection> + Clone {
+    warp::body::content_length_limit(1024 * 16)
+    .and(warp::body::json())
+}
+
+
+
